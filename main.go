@@ -150,9 +150,9 @@ func randomBetween(min, max int) int {
 }
 
 func getNewMatch(prev Match, factions []Faction, bots []Faction) {
-	nBots := randomBetween(1, 2)
 	//nHirelings := randomBetween(1, 3)
 	//nLandmarks := randomBetween(1, 3)
+	newMatch := Match{}
 
 	playerFactions := []Item{}
 	for f := range factions {
@@ -163,12 +163,23 @@ func getNewMatch(prev Match, factions []Faction, bots []Faction) {
 		}
 	}
 
-	botFactions := []Item{}
-	botWeight := 0.125
-
 	player := weightedRandom(playerFactions)
-	prev.PlayerFaction = Faction(player)
 
+	botFactions := []Item{}
+	for f := range factions {
+		if f == player {
+			continue
+		}
+		for bot := range prev.BotFactions {
+			if f == bot {
+				botFactions = append(botFactions, Item{Name: bot, Weight: 0.15})
+			} else {
+				botFactions = append(botFactions, Item{Name: bot, Weight: 0.1})
+			}
+		}
+	}
+
+	newMatch.BotFactions[0] = int(weightedRandom(playerFactions))
 }
 
 func main() {
