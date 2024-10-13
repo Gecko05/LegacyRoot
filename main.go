@@ -50,7 +50,7 @@ const (
 	RiverfolkCompany  = "Riverfolk Company"
 	LizardCult        = "Lizard Cult"
 	UndergroundDuchy  = "Underground Duchy"
-	CorvidConspiracy  = "CorvidConspiracy"
+	CorvidConspiracy  = "Corvid Conspiracy"
 	LordOfTheHundreds = "Lord Of The Hundreds"
 	KeepersInIron     = "KeepersInIron"
 )
@@ -185,7 +185,7 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 	BotFactions := []Item{}
 	for f := range bots {
 		if f == int(newMatch.playerFactions.val) {
-			fmt.Println(f)
+			//fmt.Println(f)
 			continue
 		}
 		for prevBot := range prev.BotFactions {
@@ -269,9 +269,9 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 			l := weightedRandom(landmarkSelection)
 			newMatch.Landmarks[i] = Landmark{val: l, name: getLandmarkName(l)}
 
-			for _, v := range landmarks {
+			for j, v := range landmarks {
 				if v == newMatch.Landmarks[i].val {
-					landmarkSelection = append(landmarkSelection[:i], landmarkSelection[i+1:]...)
+					landmarkSelection = append(landmarkSelection[:j], landmarkSelection[j+1:]...)
 				}
 			}
 		}
@@ -301,9 +301,11 @@ func main() {
 	}
 
 	prev := Match{
-		playerFactions: NewFaction(Marquise),
-		BotFactions:    [2]Faction{NewFaction(Alliance), NewFaction(Eyrie)},
+		playerFactions: NewFaction(Riverfolk),
+		BotFactions:    [2]Faction{NewFaction(Corvid), NewFaction(Alliance)},
+		Hirelings:      [3]Faction{},
 		Map:            Map{val: Autumn, name: "Autumn"},
+		Landmarks:      [3]Landmark{},
 	}
 
 	newMatch := getNewMatch(prev, playerFactions, BotFactions, hirelings)
