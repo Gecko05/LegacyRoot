@@ -307,5 +307,17 @@ func main() {
 	}
 
 	newMatch := getNewMatch(prev, playerFactions, BotFactions, hirelings)
-	fmt.Println(newMatch)
+	fmt.Printf("Player Faction: %v\n", newMatch.playerFactions.name)
+	fmt.Printf("Enemies: %v %v\n", newMatch.BotFactions[0].name, newMatch.BotFactions[1].name)
+	fmt.Printf("Hirelings: ")
+	for i := range newMatch.Hirelings {
+		fmt.Printf("%v ", newMatch.Hirelings[i].name)
+	}
+	fmt.Println("")
+	fmt.Printf("Map: %v\n", newMatch.Map.name)
+	fmt.Printf("Landmarks: ")
+	for i := range newMatch.Landmarks {
+		fmt.Printf("%v ", newMatch.Landmarks[i].name)
+	}
+	fmt.Println("")
 }
