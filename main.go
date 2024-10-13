@@ -5,10 +5,8 @@ import (
 	"math/rand"
 )
 
-type Faction int
-
 const (
-	Marquise Faction = iota
+	Marquise int = iota
 	Eyrie
 	Alliance
 	Vagabond
@@ -23,19 +21,20 @@ const (
 	Band
 )
 
-type Map int
+type Map struct {
+	val  int
+	name string
+}
 
 const (
-	Autumn Map = iota
+	Autumn int = iota
 	Winter
 	Lake
 	Mountain
 )
 
-type Landmark int
-
 const (
-	Tower = iota
+	Tower int = iota
 	Ferry
 	City
 	Treetop
@@ -46,6 +45,7 @@ const (
 const (
 	MarquiseDeCat     = "Marquise de Cat"
 	EyrieDynasties    = "Eyrie Dynasties"
+	WoodlandAlliance  = "Woodland Alliance"
 	TheVagabond       = "The Vagabond"
 	RiverfolkCompany  = "Riverfolk Company"
 	LizardCult        = "Lizard Cult"
@@ -55,18 +55,28 @@ const (
 	KeepersInIron     = "KeepersInIron"
 )
 
-func isBotAvailable(faction Faction) bool {
-	if faction > Hundreds {
+type Faction struct {
+	val  int
+	name string
+}
+
+func NewFaction(enum int) Faction {
+	f := Faction{val: enum, name: getFactionName(enum)}
+	return f
+}
+
+func isBotAvailable(int int) bool {
+	if int > Hundreds {
 		return false
 	}
-	switch faction {
+	switch int {
 	case Keepers, Hundreds:
 		return false
 	}
 	return true
 }
 
-func getLandmarkName(landmark Landmark) string {
+func getLandmarkName(landmark int) string {
 	switch landmark {
 	case Tower:
 		return "The Tower"
@@ -84,12 +94,14 @@ func getLandmarkName(landmark Landmark) string {
 	return ""
 }
 
-func getFactionName(faction Faction, hireling bool, demoted bool) string {
-	switch faction {
+func getFactionName(int int) string {
+	switch int {
 	case Marquise:
 		return MarquiseDeCat
 	case Eyrie:
 		return EyrieDynasties
+	case Alliance:
+		return WoodlandAlliance
 	case Vagabond:
 		return TheVagabond
 	case Riverfolk:
@@ -138,55 +150,141 @@ func weightedRandom(items []Item) int {
 	return items[len(items)-1].Name
 }
 
+type Landmark struct {
+	val  int
+	name string
+}
+
 type Match struct {
-	PlayerFaction Faction
-	BotFactions   [2]Faction
-	Hirelings     [3]Faction
-	Landmarks     [3]Landmark
+	playerFactions Faction
+	BotFactions    [2]Faction
+	Hirelings      [3]Faction
+	Landmarks      [3]Landmark
+	Map            Map
 }
 
 func randomBetween(min, max int) int {
 	return rand.Intn(max-min+1) + min // Generate random number in range [min, max]
 }
 
-func getNewMatch(prev Match, factions []Faction, bots []Faction) {
-	//nHirelings := randomBetween(1, 3)
+func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]string) Match {
 	//nLandmarks := randomBetween(1, 3)
 	newMatch := Match{}
 
 	playerFactions := []Item{}
 	for f := range factions {
-		if f == int(prev.PlayerFaction) {
+		if f == int(prev.playerFactions.val) {
 			playerFactions = append(playerFactions, Item{Name: f, Weight: 0.28})
 		} else {
 			playerFactions = append(playerFactions, Item{Name: f, Weight: 0.08})
 		}
 	}
 
-	player := weightedRandom(playerFactions)
+	newMatch.playerFactions = NewFaction(weightedRandom(playerFactions))
 
-	botFactions := []Item{}
-	for f := range factions {
-		if f == player {
+	BotFactions := []Item{}
+	for f := range bots {
+		if f == int(newMatch.playerFactions.val) {
+			fmt.Println(f)
 			continue
 		}
-		for bot := range prev.BotFactions {
-			if f == bot {
-				botFactions = append(botFactions, Item{Name: bot, Weight: 0.15})
+		for prevBot := range prev.BotFactions {
+			if f == prevBot {
+				BotFactions = append(BotFactions, Item{Name: f, Weight: 0.15})
+				break
 			} else {
-				botFactions = append(botFactions, Item{Name: bot, Weight: 0.1})
+				BotFactions = append(BotFactions, Item{Name: f, Weight: 0.1})
+				break
 			}
 		}
 	}
 
-	newMatch.BotFactions[0] = int(weightedRandom(playerFactions))
+	newMatch.BotFactions[0] = NewFaction(int(weightedRandom(BotFactions)))
+	for i, bot := range BotFactions {
+		if bot.Name == newMatch.BotFactions[0].val {
+			BotFactions = append(BotFactions[:i], BotFactions[i+1:]...)
+			break
+		}
+	}
+	newMatch.BotFactions[1] = NewFaction(weightedRandom(BotFactions))
+
+	nHirelings := randomBetween(0, 3)
+	if nHirelings > 0 {
+		hirelingFactions := []Item{}
+		prevCount := 0
+		for k := range hirelings {
+			if k == newMatch.BotFactions[0].val || k == newMatch.playerFactions.val || k == newMatch.BotFactions[1].val {
+				continue
+			}
+			for _, prevHireling := range prev.Hirelings {
+				if prevHireling.val == k {
+					prevCount += 1
+					hirelingFactions = append(hirelingFactions, Item{Name: k, Weight: 0.15})
+				}
+			}
+		}
+
+		weightAll := 1.0
+		for k := range hirelings {
+			if k == newMatch.BotFactions[0].val || k == newMatch.playerFactions.val || k == newMatch.BotFactions[1].val {
+				continue
+			}
+			hirelingFactions = append(hirelingFactions, Item{Name: k, Weight: float64((weightAll - (0.15 * float64(prevCount))) / 10)})
+		}
+
+		for i := range nHirelings {
+			rank := randomBetween(0, 1)
+			h := weightedRandom(hirelingFactions)
+			newMatch.Hirelings[i] = Faction{val: h, name: hirelings[h][rank]}
+			for j, h := range hirelingFactions {
+				if h.Name == newMatch.Hirelings[i].val {
+					hirelingFactions = append(hirelingFactions[:j], hirelingFactions[j+1:]...)
+				}
+			}
+		}
+	}
+
+	maps := map[int]string{Autumn: "Autumn", Winter: "Winter", Lake: "Lake", Mountain: "Mountain"}
+	//maps := [4]int{Autumn, Winter, Lake, Mountain}
+	mapSelection := []Item{}
+	for k := range maps {
+		if k == prev.Map.val {
+			mapSelection = append(mapSelection, Item{Name: k, Weight: 0.34})
+		} else {
+			mapSelection = append(mapSelection, Item{Name: k, Weight: 0.22})
+		}
+	}
+	m := weightedRandom(mapSelection)
+	newMatch.Map = Map{val: m, name: maps[m]}
+
+	nLandmarks := randomBetween(0, 3)
+	if nLandmarks > 0 {
+		landmarks := [6]int{Tower, Ferry, Treetop, City, Market, Forge}
+		landmarkSelection := []Item{}
+		for _, v := range landmarks {
+			landmarkSelection = append(landmarkSelection, Item{Name: v, Weight: float64(1.0 / 6.0)})
+		}
+
+		for i := range nLandmarks {
+			l := weightedRandom(landmarkSelection)
+			newMatch.Landmarks[i] = Landmark{val: l, name: getLandmarkName(l)}
+
+			for _, v := range landmarks {
+				if v == newMatch.Landmarks[i].val {
+					landmarkSelection = append(landmarkSelection[:i], landmarkSelection[i+1:]...)
+				}
+			}
+		}
+	}
+
+	return newMatch
 }
 
 func main() {
 	fmt.Println("Running")
-	playerFactions := []Faction{Marquise, Eyrie, Alliance, Vagabond, Riverfolk, Lizard, Underground, Corvid, Hundreds, Keepers}
-	botFactions := []Faction{Marquise, Eyrie, Alliance, Vagabond, Riverfolk, Lizard, Underground, Corvid}
-	/*hirelings := map[Faction][]string{
+	playerFactions := []int{Marquise, Eyrie, Alliance, Vagabond, Riverfolk, Lizard, Underground, Corvid, Hundreds, Keepers}
+	BotFactions := []int{Marquise, Eyrie, Alliance, Vagabond, Riverfolk, Lizard, Underground, Corvid}
+	hirelings := map[int][]string{
 		Marquise:    {"Forest Patrol", "Feline Physicians"},
 		Eyrie:       {"Last Dynasties", "Bluebird Nobles"},
 		Alliance:    {"Spring Uprising", "Rabbit Scouts"},
@@ -200,12 +298,14 @@ func main() {
 		Bandits:     {"Highway Bandits", "Bandit Gangs"},
 		Protector:   {"Furious Protector", "Stoic Protector"},
 		Band:        {"Popular Band", "Street Band"},
-	}*/
-
-	prev := Match{
-		PlayerFaction: Marquise,
-		BotFactions:   [2]Faction{Alliance, Eyrie},
 	}
 
-	getNewMatch(prev, playerFactions, botFactions)
+	prev := Match{
+		playerFactions: NewFaction(Marquise),
+		BotFactions:    [2]Faction{NewFaction(Alliance), NewFaction(Eyrie)},
+		Map:            Map{val: Autumn, name: "Autumn"},
+	}
+
+	newMatch := getNewMatch(prev, playerFactions, BotFactions, hirelings)
+	fmt.Println(newMatch)
 }
