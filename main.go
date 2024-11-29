@@ -128,7 +128,7 @@ type Item struct {
 }
 
 // Function to choose an item randomly based on the given probabilities
-func weightedRandom(items []Item) int {
+func pickRandom(items []Item) int {
 	// Calculate the total weight
 	totalWeight := 0.0
 	for _, item := range items {
@@ -163,14 +163,32 @@ type Match struct {
 	Map            Map
 }
 
+type MatchCfg struct {
+	UseHirelings bool
+	UseLandmarks bool
+	BotEnemies   int
+	Players      int
+}
+
 func randomBetween(min, max int) int {
 	return rand.Intn(max-min+1) + min // Generate random number in range [min, max]
 }
 
-func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]string) Match {
+func removeFromPool(e int, pool []Item) []Item {
+	for i, bot := range pool {
+		if bot.Name == e {
+			pool = append(pool[:i], pool[i+1:]...)
+			break
+		}
+	}
+	return pool
+}
+
+func generateNewMatch(prev Match, factions map[int]string, bots map[int]string, hirelings map[int][]string, cfg *MatchCfg) Match {
 	//nLandmarks := randomBetween(1, 3)
 	newMatch := Match{}
 
+	// Create player faction pool probabilities with less weight for previous played faction
 	playerFactions := []Item{}
 	for f := range factions {
 		if f == int(prev.playerFactions.val) {
@@ -179,15 +197,16 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 			playerFactions = append(playerFactions, Item{Name: f, Weight: 0.08})
 		}
 	}
+	factionId := pickRandom(playerFactions)
+	playerFaction := NewFaction(factionId)
+	newMatch.playerFactions = playerFaction
 
-	newMatch.playerFactions = NewFaction(weightedRandom(playerFactions))
+	delete(hirelings, factionId)
 
+	// Pick first bot
+	delete(bots, factionId)
 	BotFactions := []Item{}
 	for f := range bots {
-		if f == int(newMatch.playerFactions.val) {
-			//fmt.Println(f)
-			continue
-		}
 		for prevBot := range prev.BotFactions {
 			if f == prevBot {
 				BotFactions = append(BotFactions, Item{Name: f, Weight: 0.15})
@@ -198,24 +217,18 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 			}
 		}
 	}
-
-	newMatch.BotFactions[0] = NewFaction(int(weightedRandom(BotFactions)))
-	for i, bot := range BotFactions {
-		if bot.Name == newMatch.BotFactions[0].val {
-			BotFactions = append(BotFactions[:i], BotFactions[i+1:]...)
-			break
-		}
+	for i := range cfg.BotEnemies {
+		botId := int(pickRandom(BotFactions))
+		newMatch.BotFactions[i] = NewFaction(botId)
+		removeFromPool(botId, BotFactions)
+		delete(hirelings, botId)
 	}
-	newMatch.BotFactions[1] = NewFaction(weightedRandom(BotFactions))
 
 	nHirelings := randomBetween(0, 3)
 	if nHirelings > 0 {
 		hirelingFactions := []Item{}
 		prevCount := 0
 		for k := range hirelings {
-			if k == newMatch.BotFactions[0].val || k == newMatch.playerFactions.val || k == newMatch.BotFactions[1].val {
-				continue
-			}
 			for _, prevHireling := range prev.Hirelings {
 				if prevHireling.val == k {
 					prevCount += 1
@@ -234,7 +247,7 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 
 		for i := range nHirelings {
 			rank := randomBetween(0, 1)
-			h := weightedRandom(hirelingFactions)
+			h := pickRandom(hirelingFactions)
 			newMatch.Hirelings[i] = Faction{val: h, name: hirelings[h][rank]}
 			for j, h := range hirelingFactions {
 				if h.Name == newMatch.Hirelings[i].val {
@@ -254,7 +267,7 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 			mapSelection = append(mapSelection, Item{Name: k, Weight: 0.22})
 		}
 	}
-	m := weightedRandom(mapSelection)
+	m := pickRandom(mapSelection)
 	newMatch.Map = Map{val: m, name: maps[m]}
 
 	nLandmarks := randomBetween(0, 3)
@@ -266,7 +279,7 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 		}
 
 		for i := range nLandmarks {
-			l := weightedRandom(landmarkSelection)
+			l := pickRandom(landmarkSelection)
 			newMatch.Landmarks[i] = Landmark{val: l, name: getLandmarkName(l)}
 
 			for j, v := range landmarks {
@@ -282,8 +295,30 @@ func getNewMatch(prev Match, factions []int, bots []int, hirelings map[int][]str
 
 func main() {
 	fmt.Println("Running")
-	playerFactions := []int{Marquise, Eyrie, Alliance, Vagabond, Riverfolk, Lizard, Underground, Corvid, Hundreds, Keepers}
-	BotFactions := []int{Marquise, Eyrie, Alliance, Vagabond, Riverfolk, Lizard, Underground, Corvid}
+	//var hFlag = flag.Bool("h", true, "Use hirelings")
+	//playerFactions := []int{Marquise, Eyrie, Alliance, Vagabond, Riverfolk, Lizard, Underground, Corvid, Hundreds, Keepers}
+	playerFactions := map[int]string{Marquise: MarquiseDeCat,
+		Eyrie:       EyrieDynasties,
+		Alliance:    WoodlandAlliance,
+		Vagabond:    TheVagabond,
+		Riverfolk:   RiverfolkCompany,
+		Lizard:      LizardCult,
+		Underground: UndergroundDuchy,
+		Corvid:      CorvidConspiracy,
+		Hundreds:    LordOfTheHundreds,
+		Keepers:     KeepersInIron,
+	}
+
+	BotFactions := map[int]string{Marquise: MarquiseDeCat,
+		Eyrie:       EyrieDynasties,
+		Alliance:    WoodlandAlliance,
+		Vagabond:    TheVagabond,
+		Riverfolk:   RiverfolkCompany,
+		Lizard:      LizardCult,
+		Underground: UndergroundDuchy,
+		Corvid:      CorvidConspiracy,
+	}
+
 	hirelings := map[int][]string{
 		Marquise:    {"Forest Patrol", "Feline Physicians"},
 		Eyrie:       {"Last Dynasties", "Bluebird Nobles"},
@@ -308,7 +343,8 @@ func main() {
 		Landmarks:      [3]Landmark{},
 	}
 
-	newMatch := getNewMatch(prev, playerFactions, BotFactions, hirelings)
+	cfg := MatchCfg{UseHirelings: false, UseLandmarks: true, Players: 1, BotEnemies: 1}
+	newMatch := generateNewMatch(prev, playerFactions, BotFactions, hirelings, &cfg)
 	fmt.Printf("Player Faction: %v\n", newMatch.playerFactions.name)
 	fmt.Printf("Enemies: %v %v\n", newMatch.BotFactions[0].name, newMatch.BotFactions[1].name)
 	fmt.Printf("Hirelings: ")
