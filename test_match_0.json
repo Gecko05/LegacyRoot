@@ -1,0 +1,10 @@
+{
+    "players": [
+        {"Type": "RIVERFOLK",
+        "Name":"Riverfolk Company"}
+    ],
+    "bots": [
+        {"Type": "CORVID", "Name": "Corvid Conspiracy"},
+        {"Type": "ALLIANCE", "Name": "Woodland Alliance"}
+    ]
+}

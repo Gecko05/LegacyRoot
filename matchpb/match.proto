@@ -1,12 +1,59 @@
 syntax = "proto3";
 package match;
 
-option go_package = "github.com/gecko05/legacyRoot/matchpb";
+option go_package = "github.com/gecko05/LegacyRoot/matchpb";
+
+enum FactionType {
+    MARQUISE = 0;
+    EYRIE = 1;
+    ALLIANCE = 2;
+    VAGABOND = 3;
+    RIVERFOLK = 4;
+    LIZARD = 5;
+    UNDERGROUND = 8;
+    CORVID = 9;
+    HUNDREDS = 10;
+    KEEPERS = 11;
+    BANDITS = 12;
+    PROTECTOR = 13;
+    BAND = 14;
+}
+
+enum MapType {
+    AUTUMN = 0;
+    WINTER = 1;
+    LAKE = 2;
+    MOUNTAIN = 3;
+}
+
+enum LandmarkType {
+    TOWER = 0;
+    FERRY = 1;
+    CITY = 2;
+    FORGE = 3;
+    TREETOP = 4;
+    MARKET = 5;
+}
 
 message Match {
-    repeated string players = 1;
-    repeated string bots = 2;
-    repeated string hirelings = 3;
-    int32 Map = 4;
-    repeated int32 Landmarks = 5;
+    repeated Faction players = 1;
+    repeated Faction bots = 2;
+    repeated Faction hirelings = 3;
+    MapVal Map = 4;
+    repeated LandmarkVal Landmarks = 5;
+}
+
+message MapVal {
+    MapType Type = 1;
+    string Name = 2;
+}
+
+message LandmarkVal {
+    LandmarkType Type = 1;
+    string Name = 2;
+}
+
+message Faction {
+    FactionType Type = 1;
+    string Name = 2;
 }

@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"os"
 
-	"github.com/gecko05/legacyRoot/matchpb"
+	"LegacyRoot/matchpb"
 )
 
 const (
@@ -205,7 +205,7 @@ func removeFromPool(e int32, pool []Item) []Item {
 	return pool
 }
 
-func generateNewMatch(prev Match, factions map[int32]string, bots map[int32]string, hirelings map[int32][]string, cfg *MatchCfg) Match {
+func generateNewMatch(prev *matchpb.Match, factions map[int32]string, bots map[int32]string, hirelings map[int32][]string, cfg *MatchCfg) Match {
 	newMatch := Match{}
 
 	// Pick player factions.
@@ -255,10 +255,10 @@ func pickLandmarks(n int32, landmarks []int32) [3]Landmark {
 	return pickedLandmarks
 }
 
-func pickMap(prev Match, maps map[int32]string) Map {
+func pickMap(prev *matchpb.Match, maps map[int32]string) Map {
 	mapSelection := []Item{}
 	for k := range maps {
-		if k == prev.Map.val {
+		if k == int32(prev.Map.GetType()) {
 			mapSelection = append(mapSelection, Item{Name: k, Weight: 0.34})
 		} else {
 			mapSelection = append(mapSelection, Item{Name: k, Weight: 0.22})
@@ -269,7 +269,7 @@ func pickMap(prev Match, maps map[int32]string) Map {
 	return Map{val: m, name: maps[m]}
 }
 
-func pickHirelings(prev Match, hirelings map[int32][]string) [3]Faction {
+func pickHirelings(prev *matchpb.Match, hirelings map[int32][]string) [3]Faction {
 	nHirelings := randomBetween(0, 3)
 	pickedHirelings := [3]Faction{}
 	if nHirelings > 0 {
@@ -277,7 +277,7 @@ func pickHirelings(prev Match, hirelings map[int32][]string) [3]Faction {
 		prevCount := 0
 		for k := range hirelings {
 			for _, prevHireling := range prev.Hirelings {
-				if prevHireling.val == k {
+				if int32(prevHireling.GetType()) == k {
 					prevCount += 1
 					hirelingFactions = append(hirelingFactions, Item{Name: k, Weight: 0.15})
 				}
@@ -303,10 +303,10 @@ func pickHirelings(prev Match, hirelings map[int32][]string) [3]Faction {
 	return pickedHirelings
 }
 
-func pickPlayerFactions(prev Match, factions map[int32]string) Faction {
+func pickPlayerFactions(prev *matchpb.Match, factions map[int32]string) Faction {
 	playerFactions := []Item{}
 	for f := range factions {
-		if f == int32(prev.PlayerFactions.val) {
+		if f == int32(prev.Players[0].GetType()) {
 			playerFactions = append(playerFactions, Item{Name: f, Weight: 0.28})
 		} else {
 			playerFactions = append(playerFactions, Item{Name: f, Weight: 0.08})
@@ -317,11 +317,11 @@ func pickPlayerFactions(prev Match, factions map[int32]string) Faction {
 	return playerFaction
 }
 
-func pickBotFactions(prev Match, n int32, factions map[int32]string) [2]Faction {
+func pickBotFactions(prev *matchpb.Match, n int32, factions map[int32]string) [2]Faction {
 	BotFactions := []Item{}
 	for f := range factions {
-		for prevBot := range prev.BotFactions {
-			if f == int32(prevBot) {
+		for _, prevBot := range prev.Bots {
+			if f == int32(prevBot.GetType()) {
 				BotFactions = append(BotFactions, Item{Name: f, Weight: 0.15})
 				break
 			} else {
@@ -380,15 +380,10 @@ func main() {
 		Band:        {"Popular Band", "Street Band"},
 	}
 
-	data, err := os.ReadFile("match.json")
+	previous, err := parseMatch("match.json")
 	if err != nil {
-		fmt.Printf("failed to read match file: %v", err)
-	}
-
-	previous := matchpb.Match{}
-	err = json.Unmarshal(data, &previous)
-	if err != nil {
-		fmt.Printf("failed to deserialize match: %v", err)
+		fmt.Printf("failed to parse previous match: %v", err)
+		return
 	}
 
 	cfg := MatchCfg{UseHirelings: false, UseLandmarks: true, Players: 1, BotEnemies: 1}
@@ -406,4 +401,19 @@ func main() {
 		fmt.Printf("%v ", newMatch.Landmarks[i].name)
 	}
 	fmt.Println("")
+}
+
+func parseMatch(filename string) (*matchpb.Match, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read match file: %w", err)
+	}
+
+	match := &matchpb.Match{}
+	err = json.Unmarshal(data, match)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize match: %w", err)
+	}
+
+	return match, nil
 }
