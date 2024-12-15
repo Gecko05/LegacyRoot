@@ -1,0 +1,10 @@
+version: '3'
+
+tasks:
+  build:
+    cmds:
+      - go generate ./...
+      - go build ./...
+  generate:
+    cmds:
+      - go generate ./...

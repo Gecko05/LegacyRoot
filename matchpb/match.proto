@@ -1,0 +1,12 @@
+syntax = "proto3";
+package match;
+
+option go_package = "github.com/gecko05/legacyRoot/matchpb";
+
+message Match {
+    repeated string players = 1;
+    repeated string bots = 2;
+    repeated string hirelings = 3;
+    int32 Map = 4;
+    repeated int32 Landmarks = 5;
+}
