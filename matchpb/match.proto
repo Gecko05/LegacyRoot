@@ -36,11 +36,11 @@ enum LandmarkType {
 }
 
 message Match {
-    repeated Faction players = 1;
-    repeated Faction bots = 2;
-    repeated Faction hirelings = 3;
+    repeated Faction Players = 1;
+    repeated Faction Bots = 2;
+    repeated Faction Hirelings = 3;
     MapVal Map = 4;
-    repeated LandmarkVal Landmarks = 5;
+    repeated Landmark Landmarks = 5;
 }
 
 message MapVal {
@@ -48,7 +48,7 @@ message MapVal {
     string Name = 2;
 }
 
-message LandmarkVal {
+message Landmark {
     LandmarkType Type = 1;
     string Name = 2;
 }

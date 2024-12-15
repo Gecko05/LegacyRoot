@@ -6,5 +6,7 @@
     "bots": [
         {"Type": "CORVID", "Name": "Corvid Conspiracy"},
         {"Type": "ALLIANCE", "Name": "Woodland Alliance"}
-    ]
+    ],
+    "Map": {"Type": "AUTUMN", "Name": "Autumn"},
+    "Landmarks": [{"Type": "FORGE", "Name": "Legendary Forge"}]
 }

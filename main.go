@@ -1,12 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
 
 	"LegacyRoot/matchpb"
+
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -161,27 +162,9 @@ func pickRandom(items []Item) int32 {
 	return items[len(items)-1].Name
 }
 
-type Landmark struct {
-	val  int32
-	name string
-}
-
-type Faction struct {
-	val  int32
-	name string
-}
-
-func NewFaction(enum int32) Faction {
-	f := Faction{val: enum, name: getFactionName(enum)}
+func NewFaction(enum int32) *matchpb.Faction {
+	f := &matchpb.Faction{Type: matchpb.FactionType(enum), Name: getFactionName(enum)}
 	return f
-}
-
-type Match struct {
-	PlayerFactions Faction     `json:"players"`
-	BotFactions    [2]Faction  `json:"bots"`
-	Hirelings      [3]Faction  `json:"hirelings"`
-	Landmarks      [3]Landmark `json:"landmarks"`
-	Map            Map         `json:"map"`
 }
 
 type MatchCfg struct {
@@ -205,22 +188,28 @@ func removeFromPool(e int32, pool []Item) []Item {
 	return pool
 }
 
-func generateNewMatch(prev *matchpb.Match, factions map[int32]string, bots map[int32]string, hirelings map[int32][]string, cfg *MatchCfg) Match {
-	newMatch := Match{}
+func generateNewMatch(
+	prev *matchpb.Match,
+	factions map[int32]string,
+	bots map[int32]string,
+	hirelings map[int32][]string,
+	cfg *MatchCfg,
+) *matchpb.Match {
+	newMatch := &matchpb.Match{}
 
 	// Pick player factions.
-	newMatch.PlayerFactions = pickPlayerFactions(prev, factions)
+	newMatch.Players = []*matchpb.Faction{pickPlayerFactions(prev, factions)}
 
 	// Remove player factions from bot and hirelings pools.
-	delete(hirelings, newMatch.PlayerFactions.val)
-	delete(bots, newMatch.PlayerFactions.val)
+	delete(hirelings, int32(newMatch.GetPlayers()[0].GetType()))
+	delete(bots, int32(newMatch.GetPlayers()[0].GetType()))
 
 	// Pick Bots
-	newMatch.BotFactions = pickBotFactions(prev, cfg.BotEnemies, bots)
+	newMatch.Bots = pickBotFactions(prev, cfg.BotEnemies, bots)
 
 	// Remove non compatible hirelings based on bot factions.
-	for _, bot := range newMatch.BotFactions {
-		delete(hirelings, bot.val)
+	for _, bot := range newMatch.GetBots() {
+		delete(hirelings, int32(bot.GetType()))
 	}
 
 	// Pick hireings.
@@ -238,24 +227,27 @@ func generateNewMatch(prev *matchpb.Match, factions map[int32]string, bots map[i
 	return newMatch
 }
 
-func pickLandmarks(n int32, landmarks []int32) [3]Landmark {
-	pickedLandmarks := [3]Landmark{}
+func pickLandmarks(n int32, landmarks []int32) []*matchpb.Landmark {
+	pickedLandmarks := []*matchpb.Landmark{{}, {}, {}}
 	if n > 0 {
 		landmarkSelection := []Item{}
 		for _, v := range landmarks {
-			landmarkSelection = append(landmarkSelection, Item{Name: v, Weight: float64(1.0 / len(landmarks))})
+			landmarkSelection = append(landmarkSelection, Item{Name: v, Weight: 1.0 / float64(len(landmarks))})
 		}
 
 		for i := range n {
 			landmarkId := pickRandom(landmarkSelection)
-			pickedLandmarks[i] = Landmark{val: landmarkId, name: getLandmarkName(landmarkId)}
-			removeFromPool(landmarkId, landmarkSelection)
+			pickedLandmarks[i] = &matchpb.Landmark{
+				Type: matchpb.LandmarkType(landmarkId),
+				Name: getLandmarkName(landmarkId),
+			}
+			landmarkSelection = removeFromPool(landmarkId, landmarkSelection)
 		}
 	}
 	return pickedLandmarks
 }
 
-func pickMap(prev *matchpb.Match, maps map[int32]string) Map {
+func pickMap(prev *matchpb.Match, maps map[int32]string) *matchpb.MapVal {
 	mapSelection := []Item{}
 	for k := range maps {
 		if k == int32(prev.Map.GetType()) {
@@ -266,12 +258,12 @@ func pickMap(prev *matchpb.Match, maps map[int32]string) Map {
 	}
 	m := pickRandom(mapSelection)
 
-	return Map{val: m, name: maps[m]}
+	return &matchpb.MapVal{Type: matchpb.MapType(m), Name: maps[m]}
 }
 
-func pickHirelings(prev *matchpb.Match, hirelings map[int32][]string) [3]Faction {
+func pickHirelings(prev *matchpb.Match, hirelings map[int32][]string) []*matchpb.Faction {
 	nHirelings := randomBetween(0, 3)
-	pickedHirelings := [3]Faction{}
+	pickedHirelings := []*matchpb.Faction{{}, {}, {}}
 	if nHirelings > 0 {
 		hirelingFactions := []Item{}
 		prevCount := 0
@@ -286,15 +278,18 @@ func pickHirelings(prev *matchpb.Match, hirelings map[int32][]string) [3]Faction
 
 		weightAll := 1.0
 		for k := range hirelings {
-			hirelingFactions = append(hirelingFactions, Item{Name: k, Weight: float64((weightAll - (0.15 * float64(prevCount))) / 10)})
+			hirelingFactions = append(
+				hirelingFactions,
+				Item{Name: k, Weight: float64((weightAll - (0.15 * float64(prevCount))) / 10)},
+			)
 		}
 
 		for i := range nHirelings {
 			rank := randomBetween(0, 1)
 			h := pickRandom(hirelingFactions)
-			pickedHirelings[i] = Faction{val: h, name: hirelings[h][rank]}
+			pickedHirelings[i] = &matchpb.Faction{Type: matchpb.FactionType(h), Name: hirelings[h][rank]}
 			for j, h := range hirelingFactions {
-				if h.Name == pickedHirelings[i].val {
+				if h.Name == int32(pickedHirelings[i].Type) {
 					hirelingFactions = append(hirelingFactions[:j], hirelingFactions[j+1:]...)
 				}
 			}
@@ -303,7 +298,7 @@ func pickHirelings(prev *matchpb.Match, hirelings map[int32][]string) [3]Faction
 	return pickedHirelings
 }
 
-func pickPlayerFactions(prev *matchpb.Match, factions map[int32]string) Faction {
+func pickPlayerFactions(prev *matchpb.Match, factions map[int32]string) *matchpb.Faction {
 	playerFactions := []Item{}
 	for f := range factions {
 		if f == int32(prev.Players[0].GetType()) {
@@ -317,7 +312,7 @@ func pickPlayerFactions(prev *matchpb.Match, factions map[int32]string) Faction 
 	return playerFaction
 }
 
-func pickBotFactions(prev *matchpb.Match, n int32, factions map[int32]string) [2]Faction {
+func pickBotFactions(prev *matchpb.Match, n int32, factions map[int32]string) []*matchpb.Faction {
 	BotFactions := []Item{}
 	for f := range factions {
 		for _, prevBot := range prev.Bots {
@@ -330,7 +325,7 @@ func pickBotFactions(prev *matchpb.Match, n int32, factions map[int32]string) [2
 			}
 		}
 	}
-	bots := [2]Faction{}
+	bots := []*matchpb.Faction{{}, {}}
 	for i := range n {
 		botId := int32(pickRandom(BotFactions))
 		bots[i] = NewFaction(botId)
@@ -388,17 +383,17 @@ func main() {
 
 	cfg := MatchCfg{UseHirelings: false, UseLandmarks: true, Players: 1, BotEnemies: 1}
 	newMatch := generateNewMatch(previous, playerFactions, BotFactions, hirelings, &cfg)
-	fmt.Printf("Player Faction: %v\n", newMatch.PlayerFactions.name)
-	fmt.Printf("Enemies: %v %v\n", newMatch.BotFactions[0].name, newMatch.BotFactions[1].name)
+	fmt.Printf("Player Faction: %v\n", newMatch.GetPlayers()[0].Name)
+	fmt.Printf("Enemies: %v %v\n", newMatch.GetBots()[0].Name, newMatch.GetBots()[1].Name)
 	fmt.Printf("Hirelings: ")
 	for i := range newMatch.Hirelings {
-		fmt.Printf("%v ", newMatch.Hirelings[i].name)
+		fmt.Printf("%v ", newMatch.Hirelings[i].Name)
 	}
 	fmt.Println("")
-	fmt.Printf("Map: %v\n", newMatch.Map.name)
+	fmt.Printf("Map: %v\n", newMatch.Map.Name)
 	fmt.Printf("Landmarks: ")
 	for i := range newMatch.Landmarks {
-		fmt.Printf("%v ", newMatch.Landmarks[i].name)
+		fmt.Printf("%v ", newMatch.GetLandmarks()[i].Name)
 	}
 	fmt.Println("")
 }
@@ -410,7 +405,7 @@ func parseMatch(filename string) (*matchpb.Match, error) {
 	}
 
 	match := &matchpb.Match{}
-	err = json.Unmarshal(data, match)
+	err = protojson.Unmarshal(data, match)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize match: %w", err)
 	}

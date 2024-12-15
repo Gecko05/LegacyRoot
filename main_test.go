@@ -19,4 +19,7 @@ func TestParseMatchJSON(t *testing.T) {
 
 	assert.Equal(t, match.GetBots()[0].GetName(), "Corvid Conspiracy")
 	assert.Equal(t, match.GetBots()[1].GetName(), "Woodland Alliance")
+
+	assert.Equal(t, match.GetMap().GetType(), matchpb.MapType_AUTUMN)
+	assert.Equal(t, match.GetLandmarks()[0].GetType(), matchpb.LandmarkType_FORGE)
 }
