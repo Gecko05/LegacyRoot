@@ -7,6 +7,8 @@ import (
 
 	"LegacyRoot/matchpb"
 
+	"github.com/a-h/templ"
+	"github.com/labstack/echo"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -107,30 +109,36 @@ func FactionId(name string) int32 {
 }
 
 func getFactionName(id int32) string {
-	switch id {
-	case Marquise:
-		return MarquiseDeCat
-	case Eyrie:
-		return EyrieDynasties
-	case Alliance:
-		return WoodlandAlliance
-	case Vagabond:
-		return TheVagabond
-	case Riverfolk:
-		return RiverfolkCompany
-	case Lizard:
-		return LizardCult
-	case Underground:
-		return UndergroundDuchy
-	case Corvid:
-		return CorvidConspiracy
-	case Hundreds:
-		return LordOfTheHundreds
-	case Keepers:
-		return KeepersInIron
-	default:
-		return ""
-	}
+	return FactionNames[id]
+}
+
+var FactionNames = map[int32]string{
+	Marquise:    MarquiseDeCat,
+	Eyrie:       EyrieDynasties,
+	Alliance:    WoodlandAlliance,
+	Vagabond:    TheVagabond,
+	Riverfolk:   RiverfolkCompany,
+	Lizard:      LizardCult,
+	Underground: UndergroundDuchy,
+	Corvid:      CorvidConspiracy,
+	Hundreds:    LordOfTheHundreds,
+	Keepers:     KeepersInIron,
+}
+
+var Hirelings = map[int32][]string{
+	Marquise:    {"Forest Patrol", "Feline Physicians"},
+	Eyrie:       {"Last Dynasties", "Bluebird Nobles"},
+	Alliance:    {"Spring Uprising", "Rabbit Scouts"},
+	Vagabond:    {"The Exile", "The Bandit"},
+	Riverfolk:   {"Riverfolk Flotilla", "Otter Divers"},
+	Lizard:      {"Warm Sun Prophets", "Lizard Envoys"},
+	Underground: {"Sunward Expedition", "Mole Artisans"},
+	Corvid:      {"Corvid Spies", "Raven Sentinels"},
+	Hundreds:    {"Flame Bearers", "Rat Smugglers"},
+	Keepers:     {"Vault Keepers", "Badger Bodyguards"},
+	Bandits:     {"Highway Bandits", "Bandit Gangs"},
+	Protector:   {"Furious Protector", "Stoic Protector"},
+	Band:        {"Popular Band", "Street Band"},
 }
 
 // Struct for holding item and its weight (probability)
@@ -334,6 +342,7 @@ func pickBotFactions(prev *matchpb.Match, n int32, factions map[int32]string) []
 	return bots
 }
 
+/*
 func main() {
 	fmt.Println("Running")
 	//var hFlag = flag.Bool("h", true, "Use hirelings")
@@ -359,22 +368,6 @@ func main() {
 		Corvid:      CorvidConspiracy,
 	}
 
-	hirelings := map[int32][]string{
-		Marquise:    {"Forest Patrol", "Feline Physicians"},
-		Eyrie:       {"Last Dynasties", "Bluebird Nobles"},
-		Alliance:    {"Spring Uprising", "Rabbit Scouts"},
-		Vagabond:    {"The Exile", "The Bandit"},
-		Riverfolk:   {"Riverfolk Flotilla", "Otter Divers"},
-		Lizard:      {"Warm Sun Prophets", "Lizard Envoys"},
-		Underground: {"Sunward Expedition", "Mole Artisans"},
-		Corvid:      {"Corvid Spies", "Raven Sentinels"},
-		Hundreds:    {"Flame Bearers", "Rat Smugglers"},
-		Keepers:     {"Vault Keepers", "Badger Bodyguards"},
-		Bandits:     {"Highway Bandits", "Bandit Gangs"},
-		Protector:   {"Furious Protector", "Stoic Protector"},
-		Band:        {"Popular Band", "Street Band"},
-	}
-
 	previous, err := parseMatch("match.json")
 	if err != nil {
 		fmt.Printf("failed to parse previous match: %v", err)
@@ -382,7 +375,7 @@ func main() {
 	}
 
 	cfg := MatchCfg{UseHirelings: false, UseLandmarks: true, Players: 1, BotEnemies: 1}
-	newMatch := generateNewMatch(previous, playerFactions, BotFactions, hirelings, &cfg)
+	newMatch := generateNewMatch(previous, playerFactions, BotFactions, Hirelings, &cfg)
 	fmt.Printf("Player Faction: %v\n", newMatch.GetPlayers()[0].Name)
 	fmt.Printf("Enemies: %v %v\n", newMatch.GetBots()[0].Name, newMatch.GetBots()[1].Name)
 	fmt.Printf("Hirelings: ")
@@ -396,6 +389,18 @@ func main() {
 		fmt.Printf("%v ", newMatch.GetLandmarks()[i].Name)
 	}
 	fmt.Println("")
+}*/
+
+func main() {
+	e := echo.New()
+	e.GET("/", func(c echo.Context) error {
+		return render(c, hello("John"))
+	})
+	e.Logger.Fatal(e.Start(":1323"))
+}
+
+func render(ctx echo.Context, cmp templ.Component) error {
+	return cmp.Render(ctx.Request().Context(), ctx.Response())
 }
 
 func parseMatch(filename string) (*matchpb.Match, error) {

@@ -35,6 +35,13 @@ enum LandmarkType {
     MARKET = 5;
 }
 
+enum Suit {
+    BIRD = 0;
+    FOX = 1;
+    MOUSE = 2;
+    RABBIT = 3;
+}
+
 message Match {
     repeated Faction Players = 1;
     repeated Faction Bots = 2;
@@ -56,4 +63,9 @@ message Landmark {
 message Faction {
     FactionType Type = 1;
     string Name = 2;
+}
+
+message Clearing {
+    Suit Suit = 1;
+    int32 Number = 2;
 }
